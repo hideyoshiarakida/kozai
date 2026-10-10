@@ -18,6 +18,9 @@
 # --omega2 180 (LR's node convention Omega_2 = Omega_1 + pi).  The masses and
 # semi-major axes do not enter the ratios (Paper I, Sec. on the (1,7/2) term).
 #
+# The Paper II executable prints one more row, "(1,3)+(1,4) canonical [II]"
+# (the --canon terms evaluated alone); it does not enter this test.
+#
 # Usage: ./audit.sh   (from any directory; needs ../kozai, run `make` first)
 
 set -u

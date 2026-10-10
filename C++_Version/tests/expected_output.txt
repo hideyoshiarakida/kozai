@@ -1,4 +1,4 @@
-# Output of 'make && make test' from a clean checkout of PaperI/cpp
+# Output of 'make && make test' from a clean checkout of PaperII/cpp
 # (Linux x86-64, g++ 13.3, GSL 2.7.1, 2026-10-03; after the (1,7/2) sign correction)
 $ make && make test
 g++ -O3 -ffp-contract=off -I/usr/include -o kozai kozai.C -L/usr/lib/x86_64-linux-gnu -lgsl -lgslcblas -lm
@@ -32,5 +32,53 @@ stderr IDENTICAL (21 lines): --quad --oct --time 1e7 --dt 5e5
    stdout identical apart from the radius lines (radius 1 [RSUN]: upstream 1.02798e-06, this version 0.000102841)
 stderr IDENTICAL (31 lines): --quad --oct --peri --outerperi --rad --cross_lim --time 3e7 --dt 1e6
    stdout identical apart from the radius lines (radius 1 [RSUN]: upstream 1.02798e-06, this version 0.000102841)
+Paper I version rebuilt from PaperI_to_PaperII.patch (reverse)
+Paper I vs Paper II IDENTICAL (31 lines): --quad --oct --peri --outerperi --cross_lim --time 3e7 --dt 1e6...
+Paper I vs Paper II IDENTICAL (31 lines): --quad --oct --peri --outerperi --ours --time 3e7 --dt 1e6...
+Paper I vs Paper II IDENTICAL (101 lines): --m1 30 --m2 20 --m3 2e7 --a1 0.0713 --a2 144.694 --e1 0.808 --e2 0.8 --g1 82.076975 --g2 ...
+Paper I vs Paper II IDENTICAL (2001 lines): --m1 30 --m2 20 --m3 2e7 --a1 0.1 --a2 209.84 --e1 0.4 --e2 0.8 --g1 90 --g2 282.27 --omeg...
+Paper I vs Paper II IDENTICAL (201 lines): --units code --quad --brown --x_rn3p5 lrraw --clight 300 --time 2000 --dt 10 --raw...
 regress: PASS
+== Paper II, Sec. VII A: librating system, 2000 yr ==
+-- corrected code (recorded values; paper digits still agree)
+full: e1 min                             0.2256392264  recorded     0.2256392264  paper    0.226  ok
+full: e1 max                             0.4868826069  recorded     0.4868826069  paper    0.487  ok
+full: max l_z                           -0.6453205444  recorded    -0.6453205444  paper  -0.6453  ok
+c_Y Y only: e1 min                       0.1940174164  recorded     0.1940174164  paper    0.194  ok
+c_Y Y only: e1 max                       0.5108847169  recorded     0.5108847169  paper    0.511  ok
+c_Y Y only: max l_z                     -0.6386087568  recorded    -0.6386087568  paper  -0.6386  ok
+electric only: e1 min                    0.3179513265  recorded     0.3179513265  paper    0.318  ok
+electric only: e1 max                    0.4000583281  recorded     0.4000583281  paper    0.400  ok
+electric only: range of l_z              0.0000031002  recorded     0.0000031002  paper        -  ok
+-- X72LEGACY=1 (submitted code; values of the research runs)
+full: e1 min                             0.2255926273  recorded     0.2255926273  paper    0.226  ok
+full: e1 max                             0.4869301644  recorded     0.4869301644  paper    0.487  ok
+full: max l_z                           -0.6453083850  recorded    -0.6453083850  paper  -0.6453  ok
+c_Y Y only: e1 min                       0.1939742135  recorded     0.1939742135  paper    0.194  ok
+c_Y Y only: e1 max                       0.5109001185  recorded     0.5109001185  paper    0.511  ok
+c_Y Y only: max l_z                     -0.6385957054  recorded    -0.6385957054  paper  -0.6386  ok
+electric only: e1 min                    0.3180174713  recorded     0.3180174713  paper    0.318  ok
+electric only: e1 max                    0.4000006554  recorded     0.4000006554  paper    0.400  ok
+
+== Paper II, Sec. VII B, Table VIII (orientation A): e1,max over 1e4 yr ==
+-- corrected code (recorded values)
+no 3BpN                                  0.8103950850  recorded     0.8103950850  paper        -  ok
+Paper I (--ours)                         0.8862220047  recorded     0.8862220047  paper        -  ok
+this work (--canon)                      0.9091579712  recorded     0.9091579712  paper        -  ok
+  electric only (CANON14=0)              0.8125641186  recorded     0.8125641186  paper        -  ok
+  c_Z Z only (CANON13=0 CANON14Y=0)      0.8123990757  recorded     0.8123990757  paper        -  ok
+  c_Y Y only (CANON13=0 CANON14Z=0)      0.9067380862  recorded     0.9067380862  paper        -  ok
+  K^(1,4) only (CANON13=0)               0.9091608312  recorded     0.9091608312  paper        -  ok
+  without c_Y Y (CANON14Y=0)             0.8123990134  recorded     0.8123990134  paper        -  ok
+-- X72LEGACY=1 (submitted code; compared with Table VIII of the submitted Paper II)
+no 3BpN                                  0.8103950850  recorded     0.8103950850  paper   0.8104  ok
+Paper I (--ours)                         0.8863644097  recorded     0.8863644097  paper   0.8864  ok
+this work (--canon)                      0.9092388688  recorded     0.9092388688  paper   0.9092  ok
+  electric only (CANON14=0)              0.8115111369  recorded     0.8115111369  paper   0.8115  ok
+  c_Z Z only (CANON13=0 CANON14Y=0)      0.8114579693  recorded     0.8114579693  paper   0.8115  ok
+  c_Y Y only (CANON13=0 CANON14Z=0)      0.9068234241  recorded     0.9068234241  paper   0.9068  ok
+  K^(1,4) only (CANON13=0)               0.9092437052  recorded     0.9092437052  paper        -  ok
+  without c_Y Y (CANON14Y=0)             0.8114570293  recorded     0.8114570293  paper        -  ok
+
+canon: PASS
 exit status: 0

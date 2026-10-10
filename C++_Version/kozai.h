@@ -157,6 +157,7 @@ class kozai_struct
     int  x_rn3p5;
     bool lr_rn1p5_exact, lr_rn2p5_exact;
     bool brown;
+    bool canon;   // Paper II canonical (1,3)+(1,4) Hamiltonians
     bool restricted;
     bool outer_frame;   // reference plane = outer orbit plane instead of invariant plane
 
@@ -203,7 +204,7 @@ class kozai_struct
 				//port prefactors, no (1,7/2), no Brown).
 				x_rn4=true; x_rn2p5=true; x_rn1p5=true; x_rn3p5=0;
 				lr_rn1p5_exact=false; lr_rn2p5_exact=false;
-				brown=false; restricted=false; outer_frame=false;
+				brown=false; canon=false; restricted=false; outer_frame=false;
 				y = new double[DIMENSION];
 			}
 
@@ -403,6 +404,7 @@ class kozai_struct
 		void set_lr_rn1p5_exact(bool b){lr_rn1p5_exact=b;} bool get_lr_rn1p5_exact(){return lr_rn1p5_exact;}
 		void set_lr_rn2p5_exact(bool b){lr_rn2p5_exact=b;} bool get_lr_rn2p5_exact(){return lr_rn2p5_exact;}
 		void set_brown(bool b)   {brown=b;}    bool get_brown()   {return brown;}
+		void set_canon(bool b)   {canon=b;}    bool get_canon()   {return canon;}
 		void set_restricted(bool b){restricted=b;} bool get_restricted(){return restricted;}
 		void set_outer_frame(bool b){outer_frame=b;} bool get_outer_frame(){return outer_frame;}
 

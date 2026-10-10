@@ -1,5 +1,6 @@
 # Secular three-body code (modified version of C. L. Rodriguez's code with the
-# cross terms of Lim & Rodriguez 2020), Paper I version.
+# cross terms of Lim & Rodriguez 2020), Paper II version: the Paper I code plus
+# the canonical cross terms of Paper II (option --canon).
 #
 #   make          build ./kozai
 #   make test     run the tests in tests/ (needs git and network access for
@@ -18,7 +19,7 @@ kozai: kozai.C kozai.h vector.h
 	$(CXX) $(CXXFLAGS) $(GSL_CFLAGS) -o $@ kozai.C $(GSL_LIBS)
 
 test: kozai
-	@cd tests && ./audit.sh && ./x72sign.sh && ./regress.sh
+	@cd tests && ./audit.sh && ./x72sign.sh && ./regress.sh && ./canon.sh
 
 clean:
 	rm -f kozai kozai_orig

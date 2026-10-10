@@ -8,7 +8,12 @@
 #  3. builds the unmodified code as ../kozai_orig;
 #  4. runs three option sets that use none of the new options with ../kozai
 #     and ../kozai_orig and requires the integrated trajectory (stderr) to be
-#     bit-identical.
+#     bit-identical;
+#  5. rebuilds the Paper I version of the code from ../kozai.C, ../kozai.h by
+#     applying ../PaperI_to_PaperII.patch in reverse, and checks that without
+#     --canon the Paper I and Paper II executables give bit-identical output
+#     (stdout and stderr) for five option sets, including the options of
+#     Paper I (--ours, --brown, --x_rn3p5, --units code, --raw).
 #
 # Known, intended difference: upstream sets the default collision radius to
 # 2*1476*m/MSUN, i.e. 2Gm/c^2 with 1476 in metres while all lengths are in cm
@@ -81,6 +86,35 @@ for o in "${OPTS[@]}"; do
     echo "   stdout differs beyond the radius lines"; fail=1
   fi
 done
+
+# 5. Paper I behaviour unchanged when --canon is not given
+mkdir -p work/paperI
+cp ../kozai.C ../kozai.h ../vector.h work/paperI/
+if (cd work/paperI && patch -s -R -p1 < ../../../PaperI_to_PaperII.patch) &&
+   $CXX $CXXFLAGS $GSL_CFLAGS -o work/paperI/kozai_paperI work/paperI/kozai.C $GSL_LIBS; then
+  echo "Paper I version rebuilt from PaperI_to_PaperII.patch (reverse)"
+  F8="--m1 30 --m2 20 --m3 2e7 --a1 0.0713 --a2 144.694 --e1 0.808 --e2 0.8 --g1 82.076975
+      --g2 159.369837 --omega1 127.304623 --omega2 307.304623 --inc 37.935"
+  LIB="--m1 30 --m2 20 --m3 2e7 --a1 0.1 --a2 209.84 --e1 0.4 --e2 0.8 --g1 90 --g2 282.27
+       --omega1 192.5 --omega2 12.5 --inc 136.00128"
+  OPTS1=("--quad --oct --peri --outerperi --cross_lim --time 3e7 --dt 1e6"
+         "--quad --oct --peri --outerperi --ours --time 3e7 --dt 1e6"
+         "$F8 --quad --oct --peri --outerperi --ours --time 1e4 --dt 100 --raw"
+         "$LIB --quad --peri --outerperi --cross_lim --time 2000 --dt 1 --raw"
+         "--units code --quad --brown --x_rn3p5 lrraw --clight 300 --time 2000 --dt 10 --raw")
+  for o in "${OPTS1[@]}"; do
+    work/paperI/kozai_paperI $o > work/p1.out 2> work/p1.err
+    $EXE                     $o > work/p2.out 2> work/p2.err
+    n=$(wc -l < work/p2.err)
+    if cmp -s work/p1.err work/p2.err && cmp -s work/p1.out work/p2.out; then
+      echo "Paper I vs Paper II IDENTICAL ($n lines): $(echo $o | cut -c1-90)..."
+    else
+      echo "Paper I vs Paper II DIFFERENT ($n lines): $o"; fail=1
+    fi
+  done
+else
+  echo "cannot rebuild the Paper I version from PaperI_to_PaperII.patch"; fail=1
+fi
 
 rm -rf work
 if [ $fail -eq 0 ]; then echo "regress: PASS"; exit 0; else echo "regress: FAIL"; exit 1; fi

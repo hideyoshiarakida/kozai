@@ -1,0 +1,143 @@
+diff -ruN a/kozai.C b/kozai.C
+--- a/kozai.C	2026-10-10 01:17:03.861502945 +0000
++++ b/kozai.C	2026-10-10 01:17:03.862903390 +0000
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ #include "kozai.h"
+ 
+ const string help="\nCarl's Kozai Code\n\n\
+@@ -77,7 +78,10 @@
+ \n\
+ Shorthands:\n\
+   --ours         --cross_lim, (1,4) and (1,5/2) on, (1,3/2) OFF, (1,7/2)=KST\n\
+-  --lr_full      --cross_lim, everything LR publishes, incl. (A7)-(A11)\n";
++  --lr_full      --cross_lim, everything LR publishes, incl. (A7)-(A11)\n\
++  --canon        Paper II: canonical (1,3)+(1,4), de Sitter exact, (1,7/2)=KST, no (1,3/2)\n\
++                 environment switches (factors, default 1; 0 switches a term off):\n\
++                 CANON13 (K^(1,3)), CANON14 (K^(1,4)), CANON14Z (cZ Z), CANON14Y (cY Y)\n";
+ 
+ // MODIFIED (Arakida+): machine-precision dump of the full state, in the current
+ // unit system, for direct comparison against our Python runs.  Everything the
+@@ -266,6 +270,11 @@
+   audit_one(kozai, "(1,7/2) Rn3p5  LR reconstructed");
+   ONLY(false,false,false,false,true ,false,false,false,3,false)
+   audit_one(kozai, "(1,7/2) Rn3p5  LR (A7)(A9)(A11)");
++  { bool cc0=kozai->get_canon();
++    ONLY(false,false,false,false,false,false,false,false,0,false)
++    kozai->set_canon(true);
++    audit_one(kozai, "(1,3)+(1,4) canonical [II]");
++    kozai->set_canon(cc0); }
+   #undef ONLY
+ 
+   cout << "\n  K^(1,3/2) should be identically zero (Paper I): the row above is\n"
+@@ -828,6 +837,59 @@
+     de1dt += (-1./L1)*((e1^gj) + (j1^ge));
+   }
+ 
++
++  // ---- Paper II canonical grades (1,3) and (1,4) (quadrupole type) -----------
++  //   K13 = G^2 m1 m2 m3 a1/(c^2 a2^3 l2^3) [F0 (1-3cos^2 i) + F2 sin^2 i cos 2w1]
++  //         Paper II Eqs. (42)-(44); coded in the vector form of Eq. (D4),
++  //         with G2 = F2/e1^2 (regular at e1 = 0)
++  //   K14 = G^2 m1 m2 m3 a1^2/(c^2 a2^4 l2^5) [cZ Z + cY Y]
++  //         Paper II Eqs. (50)-(53)
++  //   Z = -2 + 12 e^2 + 6 (j.n2)^2 - 30 (e.n2)^2               (Eq. (40))
++  //   Y = 10[(e.u2)^2-(e.v2)^2] - 2[(j.u2)^2-(j.v2)^2]         (Eq. (51))
++  //   (octupole-type (1,4) terms are O(|m1-m2|/m3) relative and omitted)
++  // The flow is obtained from the Milankovitch equations, Eq. (D5), with the
++  // gradients of K13 + K14 taken by central differences (step 1e-6).
++  // Diagnostic environment switches (multiplicative factors, default 1):
++  //   CANON13  -> K13,  CANON14 -> K14,  CANON14Z -> cZ Z,  CANON14Y -> cY Y.
++  // They are read once, at the first evaluation (static locals).
++  if (kozai->get_canon()){
++    double M0 = m1+m2, M3c = M0+m3, nuc = m1*m2/sqr(M0);
++    double l2 = j2n;
++    vec v2c = n2^u2;
++    double pre13 = sqr(G)*m1*m2*m3*a1/(sqr(c)*pow(a2,3.)*pow(l2,3.));
++    double pre14 = sqr(G)*m1*m2*m3*sqr(a1)/(sqr(c)*pow(a2,4.)*pow(l2,5.));
++    double cZ = -((7.+18.*l2+29.*sqr(e2n))*sqr(M0)+(11.+36.*l2+52.*sqr(e2n))*M0*m3+(3.+18.*l2+27.*sqr(e2n))*sqr(m3))/(32.*M0*M3c);
++    double cY = -(1.-l2)/(1.+l2)*(12.*(3.*sqr(l2)+2.*l2+1.)*sqr(M0)+2.*(39.*sqr(l2)+46.*l2+23.)*M0*m3+6.*(7.*sqr(l2)+10.*l2+5.)*sqr(m3))/(128.*M0*M3c);
++    auto Phi = [&](vec j, vec e)->double{
++      double E2 = e*e, J2 = j*j, jz = j*n2, ez = e*n2;
++      double et = sqrt(fmax(1.-E2,1e-300));
++      double Xe;                                   // (2(eta-1)+e^2(4eta-3))/e^4
++      if (E2 < 1e-4) Xe = -2.25 - 0.625*E2;
++      else Xe = (2.*(et-1.) + E2*(4.*et-3.))/sqr(E2);
++      double F0 = (54. + 3.*E2 - (84.+36.*E2)/et - nuc*(10.-13.*E2))/32.;
++      double G2 = (3./32.)*(3.*(1.-nuc) - 2.*(2.+3.*E2)*Xe/et);
++      double K13 = pre13*( F0*(1.-3.*sqr(jz)/J2) + G2*(E2*(1.-sqr(jz)/J2) - 2.*sqr(ez)) );
++      double Z = -2. + 12.*E2 + 6.*sqr(jz) - 30.*sqr(ez);
++      double Y = 10.*(sqr(e*u2)-sqr(e*v2c)) - 2.*(sqr(j*u2)-sqr(j*v2c));
++      double K14 = pre14*(cZ*Z + cY*Y);
++      static double f13 = getenv("CANON13") ? atof(getenv("CANON13")) : 1.0;
++      static double f14 = getenv("CANON14") ? atof(getenv("CANON14")) : 1.0;
++      static double fZ  = getenv("CANON14Z") ? atof(getenv("CANON14Z")) : 1.0;
++      static double fY  = getenv("CANON14Y") ? atof(getenv("CANON14Y")) : 1.0;
++      K14 = pre14*(fZ*cZ*Z + fY*cY*Y);
++      return f13*K13 + f14*K14;
++    };
++    vec gj, ge;
++    double hh = 1e-6;
++    for (int k=0;k<3;k++){
++      vec dk = 0.; dk[k] = hh;
++      gj[k] = (Phi(j1+dk,e1) - Phi(j1-dk,e1))/(2.*hh);
++      ge[k] = (Phi(j1,e1+dk) - Phi(j1,e1-dk))/(2.*hh);
++    }
++    dj1dt += (-1./L1)*((j1^gj) + (e1^ge));
++    de1dt += (-1./L1)*((e1^gj) + (j1^ge));
++  }
++
+   //Add gravitational-wave emission for the inner binary
+   if (kozai->get_radiation() == true){
+     double dedt  = -(c304o15*e1n*(G3 * m1*m2*(m1+m2)) /
+@@ -921,6 +983,7 @@
+     {"lr_rn2p5"   ,0, 0, 314},   // use LR's PUBLISHED mass prefactor for (1,5/2)
+     {"x_rn3p5"    ,1, 0, 315},   // kst | lr : add grade (1,7/2)
+     {"brown"      ,0, 0, 316},   // add the (0,9/2) Brown Hamiltonian
++    {"canon"      ,0, 0, 323},   // Paper II: canonical (1,3)+(1,4), dS exact, (1,7/2)=KST, no (1,3/2)
+     {"restricted" ,0, 0, 317},   // freeze the outer orbit
+     {"outer_frame",0, 0, 318},   // reference plane = outer orbit plane
+     {"raw"        ,0, 0, 319},   // machine-precision state dump
+@@ -1019,6 +1082,14 @@
+       kozai->set_x_rn3p5(2);
+       break;
+     case 322: AUDIT_ONLY = 1; break;
++    case 323:  // --canon : Paper II canonical cross terms
++      kozai->set_cross_lim(true);
++      kozai->set_x_rn4(false);          // LR's (1,4) replaced by ours
++      kozai->set_x_rn2p5(true); kozai->set_lr_rn2p5_exact(true);
++      kozai->set_x_rn1p5(false);        // K^(1,3/2) == 0
++      kozai->set_x_rn3p5(1);            // K^(1,7/2) = -K_star
++      kozai->set_canon(true);
++      break;
+     case 'h':
+       cout << help;
+       exit(1);
+diff -ruN a/kozai.h b/kozai.h
+--- a/kozai.h	2026-10-10 01:17:03.864356141 +0000
++++ b/kozai.h	2026-10-10 01:17:03.866027514 +0000
+@@ -157,6 +157,7 @@
+     int  x_rn3p5;
+     bool lr_rn1p5_exact, lr_rn2p5_exact;
+     bool brown;
++    bool canon;   // Paper II canonical (1,3)+(1,4) Hamiltonians
+     bool restricted;
+     bool outer_frame;   // reference plane = outer orbit plane instead of invariant plane
+ 
+@@ -203,7 +204,7 @@
+ 				//port prefactors, no (1,7/2), no Brown).
+ 				x_rn4=true; x_rn2p5=true; x_rn1p5=true; x_rn3p5=0;
+ 				lr_rn1p5_exact=false; lr_rn2p5_exact=false;
+-				brown=false; restricted=false; outer_frame=false;
++				brown=false; canon=false; restricted=false; outer_frame=false;
+ 				y = new double[DIMENSION];
+ 			}
+ 
+@@ -403,6 +404,7 @@
+ 		void set_lr_rn1p5_exact(bool b){lr_rn1p5_exact=b;} bool get_lr_rn1p5_exact(){return lr_rn1p5_exact;}
+ 		void set_lr_rn2p5_exact(bool b){lr_rn2p5_exact=b;} bool get_lr_rn2p5_exact(){return lr_rn2p5_exact;}
+ 		void set_brown(bool b)   {brown=b;}    bool get_brown()   {return brown;}
++		void set_canon(bool b)   {canon=b;}    bool get_canon()   {return canon;}
+ 		void set_restricted(bool b){restricted=b;} bool get_restricted(){return restricted;}
+ 		void set_outer_frame(bool b){outer_frame=b;} bool get_outer_frame(){return outer_frame;}
+ 
