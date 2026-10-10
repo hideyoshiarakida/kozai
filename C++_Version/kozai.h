@@ -28,19 +28,45 @@ using namespace std;
 
 //G's and c's (with some additional powers)
 //All in CGS, just to annoy the relativists
-const double G=6.67407e-8; // cm^3 / g / s^2
-const double c=29979245800.; // cm / s
-const double Gc2=G/c/c; // cm / g
-const double G3=G*G*G;
-const double c5=c*c*c*c*c;
-const double G3c5 = G*G*G / (c*c*c*c*c);
+//
+//MODIFIED (Arakida+): these are no longer `const'.  With --units code the whole
+//set is switched to the G = 1 system used in our Python single-/double-averaged
+//runs (masses in Msun-like code units, lengths in a0-like code units, time in
+//code units), and the speed of light becomes a free parameter (--clight).
+//Call set_units() BEFORE any set_*() that multiplies by MSUN/AU/RSUN/YEAR.
+double G=6.67407e-8; // cm^3 / g / s^2
+double c=29979245800.; // cm / s
+double Gc2=G/c/c; // cm / g
+double G3=G*G*G;
+double c5=c*c*c*c*c;
+double G3c5 = G*G*G / (c*c*c*c*c);
 
 //Conversion Factors
-const double YEAR=3.15569e7; // s
-const double AU=14959787070000.0; // cm
-const double RSUN=69570000000.0; // cm
-const double MSUN=1.9884754153381438e+33; // g
+double YEAR=3.15569e7; // s
+double AU=14959787070000.0; // cm
+double RSUN=69570000000.0; // cm
+double MSUN=1.9884754153381438e+33; // g
 const double DEG=0.017453292519943295;
+
+//Recompute everything that is built out of G and c
+inline void recompute_derived(){
+  Gc2  = G/c/c;
+  G3   = G*G*G;
+  c5   = c*c*c*c*c;
+  G3c5 = G3/c5;
+}
+
+// unit_mode 0 = CGS/astro (original), 1 = code units (G = 1, Msun = AU = yr = 1)
+inline void set_units(int unit_mode, double clight){
+  if(unit_mode == 1){
+    G = 1.0;
+    YEAR = 1.0; AU = 1.0; MSUN = 1.0; RSUN = 1.0;
+    // free parameter; a large value is the Newtonian limit
+    c = (clight > 0.) ? clight : 1.0e6;
+  }
+  else if(clight > 0.) c = clight;
+  recompute_derived();
+}
 
 //Some pN constants
 const double c304o15=20.266666666666666;
@@ -108,6 +134,32 @@ class kozai_struct
     bool crossterms;
 		bool radiation;
 
+    //---------------------------------------------------------------
+    // MODIFIED (Arakida+): fine-grained control of the Lim & Rodriguez
+    // (2020) cross terms, plus the two terms our analysis adds/corrects.
+    //
+    //  x_rn4   : grade (1,4)   Rn4   DN6+ID6+IDPNB + outer-period piece
+    //            -> passes every canonicity test in our Paper I; keep on.
+    //  x_rn2p5 : grade (1,5/2) Rn2p5 DN6 = de Sitter, LR Eq. (4.4); keep on.
+    //  x_rn1p5 : grade (1,3/2) Rn1p5 IDNQ = LR Eq. (4.5) "libration" term.
+    //            Our Paper I shows K^(1,3/2) == 0, i.e. this term is spurious.
+    //  x_rn3p5 : grade (1,7/2) Rn3p5, absent from this C++ port.
+    //            1 = our/KST value  K^(1,7/2) = -K_star
+    //            2 = LR (A7)-(A11) reconstructed Hamiltonian (+K_star-prefactor/8,
+    //                with LR's angular structure)
+    //  lr_rn1p5_exact / lr_rn2p5_exact : use LR's PUBLISHED mass prefactors
+    //            instead of the ones hard-wired in this port (see README.md).
+    //  brown   : grade (0,9/2) omega_2-averaged Brown Hamiltonian C eps21 F21.
+    //  restricted : freeze the outer orbit (j2, e2 = const) -> the restricted
+    //            problem our Python runs integrate.
+    //---------------------------------------------------------------
+    bool x_rn4, x_rn2p5, x_rn1p5;
+    int  x_rn3p5;
+    bool lr_rn1p5_exact, lr_rn2p5_exact;
+    bool brown;
+    bool restricted;
+    bool outer_frame;   // reference plane = outer orbit plane instead of invariant plane
+
 		//The initial configuration of the system in j,e,s space
 		//and the initial 18 dimensional vector (allocated outside class)
 		vec j1_init;
@@ -146,6 +198,12 @@ class kozai_struct
         outerpericenter=ioperi;
         crossterms=icross;
 				radiation=rad;
+				//MODIFIED: defaults for the new switches.  With --cross_lim alone the
+				//code reproduces the ORIGINAL behaviour exactly (all three LR blocks on,
+				//port prefactors, no (1,7/2), no Brown).
+				x_rn4=true; x_rn2p5=true; x_rn1p5=true; x_rn3p5=0;
+				lr_rn1p5_exact=false; lr_rn2p5_exact=false;
+				brown=false; restricted=false; outer_frame=false;
 				y = new double[DIMENSION];
 			}
 
@@ -162,9 +220,12 @@ class kozai_struct
 			m2m1 = m2/m1;
 			eta = mu1 / (m1+m2);
 
-			//If no radius specified, set to the Schwarzschild ISCO 
-			if(r1 == 0.) r1 = 2*1476.*m1/MSUN; 
-			if(r2 == 0.) r2 = 2*1476.*m2/MSUN;
+			//If no radius specified, set to the Schwarzschild radius.
+			//MODIFIED: the original line was `2*1476.*m1/MSUN', i.e. 2GM/c^2 with the
+			//1476 written in METRES while every other length here is in cm (a factor
+			//100 too small), and it is not unit-agnostic.  Written covariantly:
+			if(r1 == 0.) r1 = 2.*G*m1/(c*c);
+			if(r2 == 0.) r2 = 2.*G*m2/(c*c);
 
 			//Using the angular momenta, figure out what the individual
 			//inclinations are wrt the invariant plane
@@ -179,6 +240,13 @@ class kozai_struct
 			double total_ang = sqrt(sqr(ia)+sqr(oa)+2*ia*oa*cos(inc));
 			double inc1 = acos((ia + oa*cos(inc))/total_ang);
 			double inc2 = acos((oa + ia*cos(inc))/total_ang);
+
+			//MODIFIED: --outer_frame puts z-hat along the OUTER orbit normal instead
+			//of along the total angular momentum.  Then Omega_1 printed by the code is
+			//the Omega_1 of our papers (node of the inner orbit on the outer plane),
+			//and iota_1 == iota.  Use together with --restricted to reproduce the
+			//restricted problem integrated by our Python runs.
+			if(outer_frame){ inc1 = inc; inc2 = 0.; }
 
 			//Define the actual vectors
 			j1_init = sqrt(1 - sqr(e1)) * vec(sin(inc1) * sin(Omega1), -sin(inc1) * cos(Omega1), cos(inc1));
@@ -327,11 +395,64 @@ class kozai_struct
 		void set_radiation(bool radiation_i) {radiation=radiation_i;}
 		bool get_radiation() {return radiation;}
 
+		//----- MODIFIED (Arakida+): the new switches -----------------------
+		void set_x_rn4(bool b)   {x_rn4=b;}    bool get_x_rn4()   {return x_rn4;}
+		void set_x_rn2p5(bool b) {x_rn2p5=b;}  bool get_x_rn2p5() {return x_rn2p5;}
+		void set_x_rn1p5(bool b) {x_rn1p5=b;}  bool get_x_rn1p5() {return x_rn1p5;}
+		void set_x_rn3p5(int  i) {x_rn3p5=i;}  int  get_x_rn3p5() {return x_rn3p5;}
+		void set_lr_rn1p5_exact(bool b){lr_rn1p5_exact=b;} bool get_lr_rn1p5_exact(){return lr_rn1p5_exact;}
+		void set_lr_rn2p5_exact(bool b){lr_rn2p5_exact=b;} bool get_lr_rn2p5_exact(){return lr_rn2p5_exact;}
+		void set_brown(bool b)   {brown=b;}    bool get_brown()   {return brown;}
+		void set_restricted(bool b){restricted=b;} bool get_restricted(){return restricted;}
+		void set_outer_frame(bool b){outer_frame=b;} bool get_outer_frame(){return outer_frame;}
+
+		//Quantities used by the comparison output; all in the current unit system.
+		double get_n0() {return sqrt(G*(m1+m2)/pow(this->get_a1(),3.));}
+		double get_n3() {return sqrt(G*(m1+m2+m3)/pow(a2,3.));}
+		// eps21 = (n3/n0)(m3/M3)(1 + 2 e3^2/3)/eta3^3   (Paper II, Eq. for eps21)
+		double get_eps21() {
+			double e2n = this->get_ecc2();
+			return (this->get_n3()/this->get_n0())*(m3/(m1+m2+m3))
+			       *(1. + 2.*sqr(e2n)/3.)/pow(sqrt(1.-sqr(e2n)),3.);
+		}
+		// jz = j1 . n2  (the z-component of the inner j in the OUTER orbit frame)
+		double get_jz() {
+			vec j2v = this->get_j2();
+			return (this->get_j1()*j2v)/abs(j2v);
+		}
+		// Omega_1 via atan2.  Mathematically identical to get_Omega1() above, but
+		// that one uses acos(), which loses half the digits whenever Omega_1 is
+		// near 0 or pi.  Used by --raw and --audit; get_Omega1() is left untouched
+		// so that the ordinary output is bit-for-bit the original code's.
+		double get_Omega1_acc() {
+			vec j1v = this->get_j1();
+			double a = atan2(j1v[0], -j1v[1]);
+			return (a < 0.) ? a + TWOPI : a;
+		}
+
+		// omega_1 measured from the mutual node, and Omega_1 about the outer normal
+		double get_omega1_mutual() {
+			vec n2v = this->get_j2()/abs(this->get_j2());
+			vec n1v = this->get_j1()/abs(this->get_j1());
+			vec node = n2v^n1v;            // points to the ascending node of 1 on plane 2
+			double nn = abs(node);
+			if(nn < 1e-14) return 0.;
+			node /= nn;
+			vec u1v = this->get_e1()/this->get_ecc1();
+			double cw = u1v*node;
+			double sw = ((node^u1v)*n1v);
+			double w = atan2(sw,cw);
+			return (w < 0.) ? w + TWOPI : w;
+		}
+
 		//precomputed constants
 		//
 		//except for L1, which changes as a1 shrinks
 		//due to radiation reaction
-		double get_L1() {return L1_no_a*sqrt(y[18]);}
+		//MODIFIED: was `sqrt(y[18])' -- an out-of-bounds read left over from an
+		//18-dimensional version of the state vector that included the spins.
+		//With DIMENSION 13 the semi-major axis lives in y[12].
+		double get_L1() {return L1_no_a*sqrt(y[12]);}
 		double get_L1_no_a() {return L1_no_a;}
 		double get_L2_no_a() {return L2_no_a;}
 		double get_mu1() {return mu1;}

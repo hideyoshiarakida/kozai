@@ -1,0 +1,36 @@
+# Output of 'make && make test' from a clean checkout of PaperI/cpp
+# (Linux x86-64, g++ 13.3, GSL 2.7.1, 2026-10-03; after the (1,7/2) sign correction)
+$ make && make test
+g++ -O3 -ffp-contract=off -I/usr/include -o kozai kozai.C -L/usr/lib/x86_64-linux-gnu -lgsl -lgslcblas -lm
+== Paper I, Table VII: (1,7/2) rate ratios (kozai --audit) ==
+=== term audit: rhs evaluated once at t = 0 ===
+  iota = 1.1 rad,  omega_1 = 0.7 rad,  e1 = 0.4,  e2 = 0.6
+grade / block                             Gdot         iotadot      Omegadot_1      omegadot_1    rho_iota   rho_Omega
+(1,7/2) Rn3p5  ours = -K_star   4.96959272e-09  1.49690692e-08  2.65829280e-08  1.10751169e-08     1.46406     2.59997
+(1,7/2) Rn3p5  LR reconstructed -1.75434023e-09  7.31791600e-10 -3.24045459e-09 -1.81358338e-08    -0.20275     0.89780
+(1,7/2) Rn3p5  LR (A7)(A9)(A11)  1.79707259e-09  1.01314766e-08  1.99632321e-08  0.00000000e+00     2.74027     5.39947
+
+                             rho_iota  rho_Omega   Table VII
+KST Eq. (35) (ours)           1.46406    2.59997   1.46406 2.59997
+LR (A7), (A9), (A11)          2.74027    5.39947   2.74027 5.39947
+ratio LR/KST                    1.872      2.077   1.872 2.077
+audit: PASS
+== sign of the (1,7/2) term relative to the octupole (kozai --audit) ==
+m1=30, m2=20                         Gdot(1,7/2)/Gdot(0,4) = -3.491258e-03  expected  -3.4913e-3  ok
+m1=20, m2=30 (mirrored)              Gdot(1,7/2)/Gdot(0,4) = -3.491258e-03  expected  -3.4913e-3  ok
+m1=30, m2=20, X72LEGACY=1            Gdot(1,7/2)/Gdot(0,4) =  3.491258e-03  expected   3.4913e-3  ok
+m1=20, m2=30, X72LEGACY=1            Gdot(1,7/2)/Gdot(0,4) = -3.491258e-03  expected  -3.4913e-3  ok
+x72sign: PASS
+== regression test against upstream commit 1393251 ==
+upstream: 1393251 2020-09-28 Updated README text
+upstream.patch -> kozai.C : identical
+upstream.patch -> kozai.h : identical
+upstream.patch -> vector.h : identical
+stderr IDENTICAL (31 lines): --quad --oct --peri --outerperi --cross_lim --time 3e7 --dt 1e6
+   stdout identical apart from the radius lines (radius 1 [RSUN]: upstream 1.02798e-06, this version 0.000102841)
+stderr IDENTICAL (21 lines): --quad --oct --time 1e7 --dt 5e5
+   stdout identical apart from the radius lines (radius 1 [RSUN]: upstream 1.02798e-06, this version 0.000102841)
+stderr IDENTICAL (31 lines): --quad --oct --peri --outerperi --rad --cross_lim --time 3e7 --dt 1e6
+   stdout identical apart from the radius lines (radius 1 [RSUN]: upstream 1.02798e-06, this version 0.000102841)
+regress: PASS
+exit status: 0
